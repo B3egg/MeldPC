@@ -2,10 +2,14 @@ package com.metrolist.desktop.playback
 
 import com.metrolist.desktop.AudioQualitySetting
 import com.metrolist.desktop.SettingsStore
+import com.metrolist.desktop.spotify.SpotifyMatcher
+import com.metrolist.desktop.spotify.SpotifyRecommender
+import com.metrolist.desktop.spotify.SpotifySession
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.WatchEndpoint
 import com.metrolist.innertubex.extraction.AudioQuality
+import com.metrolist.spotify.models.SpotifyTrack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -73,11 +77,31 @@ class PlayerController(
         load()
     }
 
-    /** Plays [song] followed by a YouTube Music radio built from it, like tapping a song in the Android app. */
+    /**
+     * Plays [song] followed by similar songs, like tapping a song in the Android app. Songs that came
+     * from Spotify get a Spotify-based radio when signed in; everything else gets YouTube Music's.
+     */
     fun playRadio(song: SongItem) {
         playQueue(listOf(song))
+        val spotifyTrack = SpotifyMatcher.trackFor(song)
+        if (spotifyTrack != null && SpotifySession.isLoggedIn && SettingsStore.current.spotifyRadio) {
+            radioJob =
+                scope.launch {
+                    val tracks = SpotifyRecommender.recommendations(spotifyTrack)
+                    if (tracks.isEmpty()) return@launch
+                    _state.update { s ->
+                        val known = s.queue.mapTo(HashSet()) { it.id }
+                        s.copy(queue = s.queue + tracks.map(SpotifyMatcher::placeholder).filter { it.id !in known })
+                    }
+                    prefetchNext()
+                }
+            return
+        }
         extendRadio(WatchEndpoint(videoId = song.id, playlistId = "RDAMVM${song.id}"), continuation = null)
     }
+
+    fun playSpotify(tracks: List<SpotifyTrack>, startIndex: Int = 0) =
+        playQueue(tracks.filter { it.id.isNotEmpty() }.map(SpotifyMatcher::placeholder), startIndex)
 
     /** Plays a YouTube Music watch endpoint (e.g. an artist's radio) and keeps extending it. */
     fun playEndpoint(endpoint: WatchEndpoint) {
@@ -197,12 +221,16 @@ class PlayerController(
     // endregion
 
     private fun load() {
-        val song = _state.value.current ?: return
+        val queued = _state.value.current ?: return
         loadJob?.cancel()
         engine.stop()
-        _state.update { it.copy(isLoading = true, isPlaying = false, positionMs = 0, durationMs = (song.duration ?: 0) * 1000L, error = null) }
+        _state.update { it.copy(isLoading = true, isPlaying = false, positionMs = 0, durationMs = (queued.duration ?: 0) * 1000L, error = null) }
         loadJob =
             scope.launch {
+                val song = resolveQueued(_state.value.index, queued) ?: run {
+                    onLoadFailed("Couldn't find this song on YouTube Music")
+                    return@launch
+                }
                 // Resolve before handing VLC the proxy URL, so failures show up as a readable error.
                 runCatching { streamFor(song.id, forceRefresh = false) }
                     .onFailure { e ->
@@ -234,8 +262,23 @@ class PlayerController(
         }
 
     private fun prefetchNext() {
-        val upcoming = _state.value.queue.getOrNull(_state.value.index + 1) ?: return
-        scope.launch { runCatching { streamFor(upcoming.id, forceRefresh = false) } }
+        val position = _state.value.index + 1
+        val upcoming = _state.value.queue.getOrNull(position) ?: return
+        scope.launch {
+            val song = resolveQueued(position, upcoming) ?: return@launch
+            runCatching { streamFor(song.id, forceRefresh = false) }
+        }
+    }
+
+    /** Matches a Spotify placeholder to a YouTube song and swaps it into the queue. */
+    private suspend fun resolveQueued(position: Int, song: SongItem): SongItem? {
+        if (!SpotifyMatcher.isPlaceholder(song)) return song
+        val resolved = SpotifyMatcher.resolve(song) ?: return null
+        _state.update { s ->
+            if (s.queue.getOrNull(position) !== song) return@update s
+            s.copy(queue = s.queue.toMutableList().also { it[position] = resolved })
+        }
+        return resolved
     }
 
     private fun onLoadFailed(message: String) {

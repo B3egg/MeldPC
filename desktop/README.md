@@ -15,6 +15,20 @@ platform-independent code (YouTube Music / InnerTube, Spotify, lyrics clients) s
 Playback is ad-free: audio streams are fetched directly, so YouTube's ads never load.
 SponsorBlock skipping is on by default for non-music parts, sponsors and self-promotion.
 
+## Spotify
+
+Settings → **Sign in with Spotify** opens Spotify's login page in a separate Microsoft Edge
+(or Chrome) window with its own profile. Once signed in, Meld reads the `sp_dc` session cookie
+through the browser's DevTools protocol and closes the window (`spotify/SpotifyLogin.kt`); this
+replaces the Android app's WebView login. The cookie is turned into web-player tokens the same way
+as on Android. With a Spotify account connected:
+
+- Home shows your top tracks, favorite artists and Spotify's personalized home sections.
+- Song search uses Spotify, and Library lists your liked songs and playlists.
+- Spotify tracks are matched to YouTube Music songs only when they're about to play, with the
+  Android app's fuzzy matching; matches are cached in `%APPDATA%\Meld\spotify-matches.json`.
+- Radio from a Spotify track uses a port of the Android recommendation engine.
+
 ## Getting the app
 
 Every push that touches the desktop code runs the **Desktop (Windows)** GitHub Actions workflow.
@@ -39,5 +53,5 @@ cd desktop
 
 ## Not ported yet
 
-Spotify login and Spotify-powered home/search, YouTube Music account login and library sync,
+Manual match override, Spotify playlist editing, YouTube Music account login and library sync,
 lyrics display, downloads, Listen Together, Discord presence, equalizer and media-key support.
