@@ -5,6 +5,7 @@ import com.metrolist.desktop.SettingsStore
 import com.metrolist.desktop.spotify.SpotifyMatcher
 import com.metrolist.desktop.spotify.SpotifyRecommender
 import com.metrolist.desktop.spotify.SpotifySession
+import com.metrolist.desktop.youtube.YouTubeAccount
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.WatchEndpoint
@@ -62,6 +63,11 @@ class PlayerController(
     private var radioContinuation: Pair<WatchEndpoint, String>? = null
     private var segments: Pair<String, List<SponsorBlock.Segment>>? = null
     private var consecutiveErrors = 0
+
+    // Listening time of the current song, for adding it to the account's YouTube history.
+    private var listenedMs = 0L
+    private var lastPositionMs = 0L
+    private var historyRegistered = false
 
     init {
         engine.setListener(this)
@@ -224,6 +230,9 @@ class PlayerController(
         val queued = _state.value.current ?: return
         loadJob?.cancel()
         engine.stop()
+        listenedMs = 0
+        lastPositionMs = 0
+        historyRegistered = false
         _state.update { it.copy(isLoading = true, isPlaying = false, positionMs = 0, durationMs = (queued.duration ?: 0) * 1000L, error = null) }
         loadJob =
             scope.launch {
@@ -359,6 +368,7 @@ class PlayerController(
 
     override fun onTime(positionMs: Long) {
         _state.update { it.copy(positionMs = positionMs) }
+        trackListening(positionMs)
         val (videoId, list) = segments ?: return
         if (videoId != _state.value.current?.id) return
         list.firstOrNull { positionMs in it.startMs..(it.endMs - 200) }?.let { segment ->
@@ -372,9 +382,22 @@ class PlayerController(
         }
     }
 
+    /** Like the Android app, a song counts as listened to after 30 seconds of actual play time. */
+    private fun trackListening(positionMs: Long) {
+        val delta = positionMs - lastPositionMs
+        lastPositionMs = positionMs
+        if (delta in 1..2000) listenedMs += delta
+        if (historyRegistered || listenedMs < HISTORY_THRESHOLD_MS) return
+        historyRegistered = true
+        val id = _state.value.current?.id ?: return
+        streams[id]?.playbackUrl?.let(YouTubeAccount::registerPlayback)
+    }
+
     override fun onLength(durationMs: Long) {
         if (durationMs > 0) _state.update { it.copy(durationMs = durationMs) }
     }
 
     // endregion
 }
+
+private const val HISTORY_THRESHOLD_MS = 30_000L

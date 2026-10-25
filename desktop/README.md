@@ -15,6 +15,22 @@ platform-independent code (YouTube Music / InnerTube, Spotify, lyrics clients) s
 Playback is ad-free: audio streams are fetched directly, so YouTube's ads never load.
 SponsorBlock skipping is on by default for non-music parts, sponsors and self-promotion.
 
+## YouTube Music account
+
+Settings → **Sign in with Google** opens Google's login page in a separate Microsoft Edge (or
+Chrome) window, the same way as the Spotify login below (`auth/BrowserLogin.kt`). Once the window
+reaches YouTube Music, Meld reads the session cookies and the page's visitor data, DataSync ID and
+session index (what the Android app's WebView login collects) and closes the window
+(`youtube/YouTubeLogin.kt`). The session is saved in `%APPDATA%\Meld\youtube-account.json`.
+With an account connected:
+
+- Home and search are personalized by YouTube Music.
+- Library shows your liked songs, playlists, recently played songs, saved albums and artists.
+- The heart in the player bar (and "Like" in song menus) likes songs on your account.
+- Songs you listen to for 30 seconds are added to your YouTube Music history.
+
+People without Edge or Chrome can paste the `Cookie` header from music.youtube.com instead.
+
 ## Spotify
 
 Settings → **Sign in with Spotify** opens Spotify's login page in a separate Microsoft Edge
@@ -53,5 +69,5 @@ cd desktop
 
 ## Not ported yet
 
-Manual match override, Spotify playlist editing, YouTube Music account login and library sync,
+Manual match override, playlist editing, choosing a brand account / channel when signing in,
 lyrics display, downloads, Listen Together, Discord presence, equalizer and media-key support.
