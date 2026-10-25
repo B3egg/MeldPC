@@ -23,6 +23,8 @@ import kotlinx.serialization.json.put
 import timber.log.Timber
 import java.io.File
 import java.net.URI
+import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.net.http.HttpClient
 import java.net.http.WebSocket
 import java.util.concurrent.CompletionStage
@@ -59,6 +61,60 @@ object BrowserLogin {
 
     fun requireBrowser(): File =
         findBrowser() ?: throw IllegalStateException("Microsoft Edge or Google Chrome is needed to sign in")
+
+    /** Thrown by a poll to stop the login with [message] instead of trying again. */
+    class LoginAbort(message: String) : Exception(message)
+
+    /**
+     * Opens [url] in a plain browser window using [profileDir], with no DevTools connection, and
+     * suspends until the user closes it. Google refuses sign-in in windows it can tell are being
+     * controlled, so its login has to happen in a window like this before [run] reads the result.
+     */
+    suspend fun openWindow(
+        browser: File,
+        profileDir: File,
+        url: String,
+        extraArgs: List<String> = emptyList(),
+        timeoutMs: Long = LOGIN_TIMEOUT_MS,
+    ): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            val dir = profileDir.apply { mkdirs() }
+            val process =
+                ProcessBuilder(
+                    browser.absolutePath,
+                    "--user-data-dir=${dir.absolutePath}",
+                    "--no-first-run",
+                    "--no-default-browser-check",
+                    "--disable-background-mode",
+                    "--window-size=520,760",
+                    *extraArgs.toTypedArray(),
+                    "--app=$url",
+                ).redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start()
+            try {
+                withTimeout(timeoutMs) {
+                    // The browser holds a lock file in the profile while it runs. Waiting for it to go away
+                    // (rather than only for the process) also covers a launcher that hands off and exits.
+                    var sawLock = false
+                    var idleChecks = 0
+                    while (true) {
+                        delay(500)
+                        val locked = isProfileLocked(dir)
+                        sawLock = sawLock || locked
+                        if (locked || process.isAlive) {
+                            idleChecks = 0
+                            continue
+                        }
+                        // Process gone and no lock: closed, or a hand-off whose lock hasn't appeared yet.
+                        if (sawLock || ++idleChecks >= 10) break
+                    }
+                }
+                Result.success(Unit)
+            } catch (e: TimeoutCancellationException) {
+                Result.failure(IllegalStateException("Sign-in timed out"))
+            } finally {
+                if (process.isAlive) process.destroy()
+            }
+        }
 
     /**
      * Opens [url] in a login window using [profileDir] and calls [poll] every 1.5 seconds until it
@@ -99,7 +155,7 @@ object BrowserLogin {
                         if (client.closed.isCompleted) error("The sign-in window was closed")
                         value = runCatching { poll(client) }
                             .onFailure {
-                                if (it is CancellationException) throw it
+                                if (it is CancellationException || it is LoginAbort) throw it
                                 Timber.d("Login poll failed: ${it.message}")
                             }.getOrNull()
                     }
@@ -120,6 +176,20 @@ object BrowserLogin {
                 }
             }
         }
+
+    /**
+     * Whether a browser is running on [dir]. On Windows the profile's "lockfile" is held open, so it
+     * can't be deleted while the browser runs; elsewhere "SingletonLock" is a symlink to "host-pid",
+     * which can outlive a browser that was killed.
+     */
+    private fun isProfileLocked(dir: File): Boolean {
+        val windowsLock = File(dir, "lockfile")
+        if (windowsLock.exists()) return !windowsLock.delete()
+        val link = File(dir, "SingletonLock").toPath()
+        if (!Files.exists(link, LinkOption.NOFOLLOW_LINKS)) return false
+        val pid = runCatching { Files.readSymbolicLink(link).toString().substringAfterLast('-').toLong() }.getOrNull()
+        return pid == null || ProcessHandle.of(pid).map { it.isAlive }.orElse(false)
+    }
 
     private suspend fun waitForDevTools(portFile: File): String {
         // The launcher process may hand off to another one, so wait on the file rather than the process.

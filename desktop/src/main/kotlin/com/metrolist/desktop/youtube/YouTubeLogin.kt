@@ -20,6 +20,8 @@ data class YouTubeAuth(
 object YouTubeLogin {
     const val LOGIN_URL = "https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fmusic.youtube.com"
     private const val MUSIC_URL = "https://music.youtube.com"
+    const val NOT_SIGNED_IN =
+        "You weren't signed in yet. Sign in again, and close the window only after YouTube Music has opened."
 
     // Same values the Android app reads through its JavaScript interface.
     private const val PAGE_CONFIG_SCRIPT =
@@ -30,20 +32,31 @@ object YouTubeLogin {
 
     val profileDir: File get() = AppDirs.file("youtube-login")
 
-    suspend fun login(): Result<YouTubeAuth> =
-        runCatching { BrowserLogin.requireBrowser() }.fold({ login(it, LOGIN_URL) }, { Result.failure(it) })
+    /**
+     * Signing in happens in a plain browser window that the user closes when YouTube Music has
+     * opened, because Google refuses sign-in in windows controlled over DevTools. The session is
+     * then read from the same browser profile in a second, off-screen window.
+     */
+    suspend fun login(): Result<YouTubeAuth> {
+        val browser = runCatching { BrowserLogin.requireBrowser() }.getOrElse { return Result.failure(it) }
+        BrowserLogin.openWindow(browser, profileDir, LOGIN_URL).onFailure { return Result.failure(it) }
+        return readSession(browser, extraArgs = listOf("--window-position=-3000,-3000"))
+    }
 
-    internal suspend fun login(
+    internal suspend fun readSession(
         browser: File,
-        url: String,
-        extraArgs: List<String> = emptyList(),
         musicUrl: String = MUSIC_URL,
+        extraArgs: List<String> = emptyList(),
         cookieDomain: String = "youtube.com",
-        timeoutMs: Long = 10 * 60 * 1000L,
-    ): Result<YouTubeAuth> =
-        BrowserLogin.run(browser, profileDir, url, extraArgs, timeoutMs) { cdp ->
+        timeoutMs: Long = 60_000,
+    ): Result<YouTubeAuth> {
+        var checks = 0
+        return BrowserLogin.run(browser, profileDir, musicUrl, extraArgs, timeoutMs) { cdp ->
             val cookies = cdp.cookies(cookieDomain)
-            if (cookies["SAPISID"].isNullOrBlank()) return@run null
+            if (cookies["SAPISID"].isNullOrBlank()) {
+                if (++checks >= 3) throw BrowserLogin.LoginAbort(NOT_SIGNED_IN)
+                return@run null
+            }
             val raw = cdp.evaluate(musicUrl, PAGE_CONFIG_SCRIPT)?.jsonPrimitive?.contentOrNull ?: return@run null
             val config = Json.parseToJsonElement(raw).jsonObject
             val visitorData = config["v"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: return@run null
@@ -54,6 +67,7 @@ object YouTubeLogin {
                 authUser = config["a"]?.jsonPrimitive?.contentOrNull.orEmpty().filter(Char::isDigit).ifBlank { "0" },
             )
         }
+    }
 
     /** Removes the login window's browser profile, which also signs it out of Google. */
     fun clearProfile() {

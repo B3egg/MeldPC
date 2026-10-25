@@ -153,7 +153,7 @@ private fun YouTubeSection() {
         YouTubeAccount.State.LoggingIn ->
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                Text("Finish signing in in the browser window that opened. It closes by itself when you're done.")
+                Text("Sign in to Google in the window that opened. When YouTube Music appears, close that window to finish.")
             }
         is YouTubeAccount.State.LoggedIn ->
             Row(verticalAlignment = Alignment.CenterVertically) {

@@ -18,10 +18,12 @@ SponsorBlock skipping is on by default for non-music parts, sponsors and self-pr
 ## YouTube Music account
 
 Settings → **Sign in with Google** opens Google's login page in a separate Microsoft Edge (or
-Chrome) window, the same way as the Spotify login below (`auth/BrowserLogin.kt`). Once the window
-reaches YouTube Music, Meld reads the session cookies and the page's visitor data, DataSync ID and
-session index (what the Android app's WebView login collects) and closes the window
-(`youtube/YouTubeLogin.kt`). The session is saved in `%APPDATA%\Meld\youtube-account.json`.
+Chrome) window with its own profile. Google refuses sign-in in a browser that's controlled over
+DevTools, so this window is a plain one: you sign in, and close it once YouTube Music has opened.
+Meld then opens the same profile off-screen with DevTools (`auth/BrowserLogin.kt`), reads the
+session cookies and the page's visitor data, DataSync ID and session index (what the Android app's
+WebView login collects), and closes it again (`youtube/YouTubeLogin.kt`). The session is saved in
+`%APPDATA%\Meld\youtube-account.json`.
 With an account connected:
 
 - Home and search are personalized by YouTube Music.
