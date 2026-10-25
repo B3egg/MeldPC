@@ -75,23 +75,23 @@ fun LibraryScreen(nav: Navigator) {
                 }
             }
             item(key = "yt-history") {
-                LibraryRow("Recently played", youtube) {
+                LibraryRow("Recently played", youtube, load = {
                     YouTube.musicHistory().map { page -> page.sections.orEmpty().flatMap { it.songs }.distinctBy { it.id }.take(30) }
-                } { songs ->
+                }) { songs ->
                     itemsIndexed(songs) { i, song -> ItemCard(song) { nav.player.playQueue(songs, i) } }
                 }
             }
             item(key = "yt-albums") {
-                LibraryRow("Saved albums", youtube) {
+                LibraryRow("Saved albums", youtube, load = {
                     YouTube.library("FEmusic_liked_albums").completed().map { it.items.filterIsInstance<AlbumItem>() }
-                } { albums ->
+                }) { albums ->
                     items(albums) { album -> ItemCard(album) { nav.openItem(album) } }
                 }
             }
             item(key = "yt-artists") {
-                LibraryRow("Artists", youtube) {
+                LibraryRow("Artists", youtube, load = {
                     YouTube.library("FEmusic_library_corpus_artists").completed().map { it.items.filterIsInstance<ArtistItem>() }
-                } { artists ->
+                }) { artists ->
                     items(artists) { artist -> ItemCard(artist) { nav.openItem(artist) } }
                 }
             }
