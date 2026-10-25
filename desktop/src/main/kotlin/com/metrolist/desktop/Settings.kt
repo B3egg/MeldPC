@@ -19,6 +19,9 @@ data class Settings(
     val sponsorBlockCategories: Set<String> = setOf("music_offtopic", "sponsor", "selfpromo"),
     val autoplayRadio: Boolean = true,
     val visitorData: String? = null,
+    val spotifyHome: Boolean = true,
+    val spotifySearch: Boolean = true,
+    val spotifyRadio: Boolean = true,
 )
 
 /** Settings saved as JSON in the app data folder (%APPDATA%\Meld on Windows). */

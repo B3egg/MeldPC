@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -42,6 +43,7 @@ fun MeldApp(player: PlayerController) {
                     }
                     RailItem(nav, Screen.Home, "Home") { Icon(Icons.Default.Home, null) }
                     RailItem(nav, Screen.Search, "Search") { Icon(Icons.Default.Search, null) }
+                    RailItem(nav, Screen.Library, "Library") { Icon(Icons.Default.LibraryMusic, null) }
                     RailItem(nav, Screen.Settings, "Settings") { Icon(Icons.Default.Settings, null) }
                 }
                 Box(Modifier.weight(1f).fillMaxHeight()) {
@@ -51,6 +53,9 @@ fun MeldApp(player: PlayerController) {
                         Screen.Settings -> SettingsScreen()
                         is Screen.Collection -> CollectionScreen(nav, screen)
                         is Screen.Artist -> ArtistScreen(nav, screen.id)
+                        Screen.Library -> LibraryScreen(nav)
+                        is Screen.SpotifyCollection -> SpotifyCollectionScreen(nav, screen)
+                        is Screen.ArtistByName -> ArtistByNameScreen(nav, screen.name)
                     }
                 }
                 if (queueOpen && state.current != null) QueuePanel(state, player, nav.songActions)

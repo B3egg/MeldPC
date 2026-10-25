@@ -11,6 +11,7 @@ import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.models.PodcastItem
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.YTItem
+import com.metrolist.spotify.models.SpotifyHomeFeedItem
 
 sealed interface Screen {
     data object Home : Screen
@@ -18,6 +19,13 @@ sealed interface Screen {
     data object Settings : Screen
     data class Collection(val id: String, val isAlbum: Boolean) : Screen
     data class Artist(val id: String) : Screen
+    data object Library : Screen
+    data class SpotifyCollection(val kind: Kind, val id: String = "") : Screen {
+        enum class Kind { PLAYLIST, ALBUM, LIKED }
+    }
+
+    /** A Spotify artist, shown as the matching YouTube Music artist page. */
+    data class ArtistByName(val name: String) : Screen
 }
 
 /** Back stack per top-level tab, plus the actions every screen shares. */
@@ -47,6 +55,14 @@ class Navigator(val player: PlayerController) {
 
     fun back() {
         if (canGoBack) stack.removeAt(stack.lastIndex)
+    }
+
+    fun openSpotifyItem(item: SpotifyHomeFeedItem) {
+        when (item) {
+            is SpotifyHomeFeedItem.Playlist -> push(Screen.SpotifyCollection(Screen.SpotifyCollection.Kind.PLAYLIST, item.id))
+            is SpotifyHomeFeedItem.Album -> push(Screen.SpotifyCollection(Screen.SpotifyCollection.Kind.ALBUM, item.id))
+            is SpotifyHomeFeedItem.Artist -> push(Screen.ArtistByName(item.name))
+        }
     }
 
     fun openItem(item: YTItem) {

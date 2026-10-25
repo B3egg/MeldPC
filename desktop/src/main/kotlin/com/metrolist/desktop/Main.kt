@@ -28,6 +28,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.metrolist.desktop.playback.PlayerController
 import com.metrolist.desktop.playback.VlcAudioEngine
+import com.metrolist.desktop.spotify.SpotifySession
 import com.metrolist.desktop.ui.LoadingBox
 import com.metrolist.desktop.ui.MeldApp
 import com.metrolist.desktop.ui.MeldTheme
@@ -58,6 +59,7 @@ fun main() {
                 } else {
                     var ready by remember { mutableStateOf(false) }
                     LaunchedEffect(Unit) {
+                        SpotifySession.initialize()
                         YouTubeSession.initialize()
                         ready = true
                     }

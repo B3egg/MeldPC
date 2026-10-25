@@ -44,8 +44,11 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # MELD_TEST_BROWSER lets the Spotify login test drive the runner's Microsoft Edge.
       - name: Run tests
         run: ./gradlew test --stacktrace
+        env:
+          MELD_TEST_BROWSER: C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe
 
       # Bundle libVLC so people don't have to install VLC themselves. Video, GUI and Lua plugins are
       # dropped because Meld only plays audio.

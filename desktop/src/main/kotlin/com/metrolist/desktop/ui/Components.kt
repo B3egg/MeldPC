@@ -155,21 +155,26 @@ private fun SongMenu(song: SongItem, actions: SongActions) {
 }
 
 @Composable
-fun ItemCard(item: YTItem, onClick: () -> Unit) {
-    val shape = if (item is ArtistItem) CircleShape else RoundedCornerShape(8.dp)
+fun ItemCard(item: YTItem, onClick: () -> Unit) =
+    MediaCard(item.title, item.subtitle(), item.thumbnail, circle = item is ArtistItem, onClick = onClick)
+
+@Composable
+fun MediaCard(title: String, subtitle: String?, imageUrl: String?, circle: Boolean = false, onClick: () -> Unit) {
     Column(
         Modifier.width(168.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(8.dp),
     ) {
-        Artwork(item.thumbnail, 152.dp, shape)
+        Artwork(imageUrl, 152.dp, if (circle) CircleShape else RoundedCornerShape(8.dp))
         Spacer(Modifier.size(8.dp))
-        Text(item.title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
-        Text(
-            item.subtitle(),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Text(title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+        if (!subtitle.isNullOrBlank()) {
+            Text(
+                subtitle,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
