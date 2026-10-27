@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
@@ -27,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,7 +41,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.metrolist.desktop.playback.PlayerController
 import com.metrolist.desktop.playback.PlayerState
+import com.metrolist.innertube.models.SongItem
 import com.metrolist.desktop.playback.RepeatMode
+import com.metrolist.desktop.spotify.SpotifyMatcher
+import com.metrolist.desktop.youtube.YouTubeAccount
 
 @Composable
 fun PlayerBar(
@@ -57,7 +63,7 @@ fun PlayerBar(
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
             Artwork(song.thumbnail, 56.dp)
             Spacer(Modifier.width(12.dp))
-            Column {
+            Column(Modifier.weight(1f, fill = false)) {
                 Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
                 val artist = song.artists.firstOrNull { it.id != null }
                 Text(
@@ -80,6 +86,7 @@ fun PlayerBar(
                     )
                 }
             }
+            LikeButton(song)
         }
 
         // Transport + seek bar
@@ -125,6 +132,21 @@ fun PlayerBar(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun LikeButton(song: SongItem) {
+    val account by YouTubeAccount.state.collectAsState()
+    val liked by YouTubeAccount.likedIds.collectAsState()
+    if (account !is YouTubeAccount.State.LoggedIn || SpotifyMatcher.isPlaceholder(song)) return
+    val isLiked = song.id in liked
+    IconButton(onClick = { YouTubeAccount.toggleLike(song) }) {
+        Icon(
+            if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+            if (isLiked) "Remove from liked songs" else "Like",
+            tint = if (isLiked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

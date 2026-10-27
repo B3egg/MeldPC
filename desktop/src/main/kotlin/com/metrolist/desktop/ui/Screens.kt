@@ -58,6 +58,7 @@ import com.metrolist.desktop.spotify.SpotifyLibrary
 import com.metrolist.desktop.spotify.SpotifyMatcher
 import com.metrolist.desktop.spotify.SpotifyProfile
 import com.metrolist.desktop.spotify.SpotifySession
+import com.metrolist.desktop.youtube.YouTubeAccount
 import com.metrolist.spotify.SpotifyMapper
 import com.metrolist.spotify.models.SpotifyHomeFeed
 import com.metrolist.spotify.models.SpotifyHomeFeedItem
@@ -69,7 +70,9 @@ fun HomeScreen(nav: Navigator) {
     val settings by SettingsStore.settings.collectAsState()
     val spotifyState by SpotifySession.state.collectAsState()
     val showSpotify = settings.spotifyHome && spotifyState is SpotifySession.State.LoggedIn
-    val (youtube, retryYoutube) = rememberLoad(Unit) { YouTube.home() }
+    val youtubeAccount by YouTubeAccount.state.collectAsState()
+    // Reload when the account changes, so Home switches between personal and anonymous picks.
+    val (youtube, retryYoutube) = rememberLoad(youtubeAccount is YouTubeAccount.State.LoggedIn) { YouTube.home() }
     val (profile, _) = rememberLoad(showSpotify) { if (showSpotify) runCatching { SpotifyProfile.get() } else Result.success(null) }
     val (feed, _) = rememberLoad(showSpotify) { if (showSpotify) SpotifyLibrary.home().map { it as SpotifyHomeFeed? } else Result.success(null) }
 

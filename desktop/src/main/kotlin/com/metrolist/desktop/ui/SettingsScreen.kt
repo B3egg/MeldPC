@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -34,6 +37,7 @@ import com.metrolist.desktop.Settings
 import com.metrolist.desktop.spotify.SpotifySession
 import com.metrolist.desktop.SettingsStore
 import com.metrolist.desktop.playback.SponsorBlock
+import com.metrolist.desktop.youtube.YouTubeAccount
 
 private val CategoryLabels =
     mapOf(
@@ -58,6 +62,9 @@ fun SettingsScreen() {
 
         Heading("Appearance")
         ToggleRow("Dark theme", settings.darkTheme) { v -> SettingsStore.update { it.copy(darkTheme = v) } }
+
+        HorizontalDivider()
+        YouTubeSection()
 
         HorizontalDivider()
         SpotifySection(settings)
@@ -109,6 +116,57 @@ fun SettingsScreen() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+@Composable
+private fun YouTubeSection() {
+    val state by YouTubeAccount.state.collectAsState()
+    val error by YouTubeAccount.lastError.collectAsState()
+    var showCookie by remember { mutableStateOf(false) }
+    var cookie by remember { mutableStateOf("") }
+
+    Heading("YouTube Music account")
+    when (val s = state) {
+        YouTubeAccount.State.LoggedOut -> {
+            Text(
+                "Sign in with your Google account to see your YouTube Music library, like songs, and get a Home page " +
+                    "based on what you listen to. Songs you play are added to your YouTube Music history.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Button(onClick = YouTubeAccount::login) { Text("Sign in with Google") }
+                TextButton(onClick = { showCookie = !showCookie }) { Text("Use a cookie instead") }
+            }
+            if (showCookie) {
+                Text(
+                    "Open music.youtube.com in your browser while signed in, press F12, open the Network tab, reload, " +
+                        "click any request to music.youtube.com and copy the whole value of its Cookie request header.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(cookie, { cookie = it }, label = { Text("Cookie") }, singleLine = true, modifier = Modifier.weight(1f))
+                    Button(onClick = { YouTubeAccount.loginWithCookie(cookie) }, enabled = cookie.isNotBlank()) { Text("Sign in") }
+                }
+            }
+        }
+        YouTubeAccount.State.LoggingIn ->
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                Text("Sign in to Google in the window that opened. When YouTube Music appears, close that window to finish.")
+            }
+        is YouTubeAccount.State.LoggedIn ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Artwork(s.thumbnailUrl, 40.dp, CircleShape)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Signed in as ${s.name ?: "YouTube Music user"}")
+                    s.email?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+                OutlinedButton(onClick = YouTubeAccount::logout) { Text("Sign out") }
+            }
+    }
+    error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
 }
 
 @Composable

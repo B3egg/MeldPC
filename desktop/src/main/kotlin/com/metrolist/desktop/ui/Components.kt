@@ -40,6 +40,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.metrolist.desktop.spotify.SpotifyMatcher
+import com.metrolist.desktop.youtube.YouTubeAccount
 import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.ArtistItem
 import com.metrolist.innertube.models.PlaylistItem
@@ -144,6 +146,13 @@ private fun SongMenu(song: SongItem, actions: SongActions) {
             DropdownMenuItem(text = { Text("Play next") }, onClick = { open = false; actions.playNext(song) })
             DropdownMenuItem(text = { Text("Add to queue") }, onClick = { open = false; actions.addToQueue(song) })
             DropdownMenuItem(text = { Text("Start radio") }, onClick = { open = false; actions.startRadio(song) })
+            if (YouTubeAccount.isLoggedIn && !SpotifyMatcher.isPlaceholder(song)) {
+                val liked = YouTubeAccount.isLiked(song.id)
+                DropdownMenuItem(
+                    text = { Text(if (liked) "Remove from liked songs" else "Like") },
+                    onClick = { open = false; YouTubeAccount.toggleLike(song) },
+                )
+            }
             song.artists.firstOrNull { it.id != null }?.let { artist ->
                 DropdownMenuItem(text = { Text("Go to artist") }, onClick = { open = false; actions.openArtist(artist.id!!) })
             }

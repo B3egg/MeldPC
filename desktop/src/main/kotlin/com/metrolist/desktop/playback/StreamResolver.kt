@@ -35,6 +35,8 @@ data class ResolvedStream(
     val rangeChunkSizeBytes: Long,
     val useRangeChunks: Boolean,
     val loudnessDb: Double?,
+    /** YouTube's playback-stats URL; pinging it adds the song to the account's history. */
+    val playbackUrl: String? = null,
 ) {
     val usesChunks: Boolean
         get() = (requireBoundedRange || useRangeChunks) && rangeChunkSizeBytes > 0
@@ -89,6 +91,7 @@ object StreamResolver {
                     rangeChunkSizeBytes = stream.rangeChunkSizeBytes,
                     useRangeChunks = stream.useRangeChunks,
                     loudnessDb = stream.loudnessDb,
+                    playbackUrl = stream.playbackTracking?.playbackUrl,
                 ),
             )
         } catch (e: CancellationException) {
